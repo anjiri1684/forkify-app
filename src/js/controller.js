@@ -2,7 +2,7 @@ import * as model from './model.js';
 import recipeView from './views/recipeView.js';
 import searchView from './views/searchView.js';
 import resultsView from './views/resultsView.js';
-
+import paginationView from './views/paginationView.js';
 import 'core-js/stable';
 import 'regenerator-runtime/runtime';
 import { async } from 'regenerator-runtime';
@@ -37,11 +37,17 @@ const controlSearchResults = async function () {
     if (!query) return;
 
     //2)load serch results
-    await model.loadSearchResults('pizza');
+    await model.loadSearchResults(query);
 
     //3)render query
-    resultsView.render(model.getSearchResultsPage(1));
-  } catch (error) {}
+    //resultsView.render(model.state.search.results)
+    resultsView.render(model.getSearchResultsPage());
+
+    //4)render initial pagination buttons
+    paginationView.render(model.state.search);
+  } catch (error) {
+    console.log(error);
+  }
 };
 controlSearchResults();
 const init = function () {
