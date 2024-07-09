@@ -1,21 +1,22 @@
 {
-  "name": "forkify-app",
+  "name": "forkify",
   "version": "1.0.0",
-  "description": "food searching app",
-  "main": "index.js",
+  "description": "Recipe application",
+  "default": "index.html",
   "scripts": {
     "start": "parcel index.html",
-    "build": "parcel build index.html"
+    "build": "parcel build index.html --dist-dir ./dist"
   },
-  "author": "vincent anjiri",
+  "author": "Vincent Anjiri",
   "license": "ISC",
-  "dependencies": {
-    "core-js": "^3.37.1",
-    "fractional": "^1.0.0",
-    "parcel": "^2.0.0-nightly.678",
-    "regenerator-runtime": "^0.14.1"
-  },
   "devDependencies": {
-    "@parcel/transformer-sass": "^2.0.0-nightly.680"
+    "@parcel/transformer-sass": "^2.12.0",
+    "parcel": "^2.0.0-beta.1",
+    "sass": "^1.26.10"
+  },
+  "dependencies": {
+    "core-js": "^3.6.5",
+    "fractional": "^1.0.0",
+    "regenerator-runtime": "^0.13.7"
   }
 }
