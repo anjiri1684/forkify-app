@@ -388,14 +388,7 @@ var _recipeViewJsDefault = parcelHelpers.interopDefault(_recipeViewJs);
 var _stable = require("core-js/stable");
 var _runtime = require("regenerator-runtime/runtime");
 const recipeContainer = document.querySelector('.recipe');
-const timeout = function(s) {
-    return new Promise(function(_, reject) {
-        setTimeout(function() {
-            reject(new Error(`Request took too long! Timeout after ${s} second`));
-        }, s * 1000);
-    });
-};
-// https://forkify-api.herokuapp.com/v2
+// https://forkify-api.herokuapp.com/v2/recipes/
 ///////////////////////////////////////
 const controlRecipes = async function() {
     try {
@@ -409,15 +402,13 @@ const controlRecipes = async function() {
         //2. rendering recipe
         _recipeViewJsDefault.default.render(_modelJs.state.recipe);
     } catch (err) {
-        alert(err);
+        _recipeViewJsDefault.default.renderError();
     }
 };
-[
-    'hashchange',
-    'load'
-].forEach((ev)=>window.addEventListener(ev, controlRecipes)
-); // window.addEventListener('hashchange', controlRecipes());
- // window.addEventListener('load', controlRecipes());
+const init = function() {
+    _recipeViewJsDefault.default.addHandlerRender(controlRecipes);
+};
+init();
 
 },{"@parcel/transformer-js/src/esmodule-helpers.js":"367CR","core-js/stable":"1PFvP","regenerator-runtime/runtime":"62Qib","./model.js":"1hp6y","./views/recipeView.js":"9e6b9"}],"367CR":[function(require,module,exports) {
 exports.interopDefault = function(a) {
@@ -17527,16 +17518,19 @@ parcelHelpers.export(exports, "state", ()=>state
 );
 parcelHelpers.export(exports, "loadRecipe", ()=>loadRecipe
 );
-var _regeneratorRuntime = require("regenerator-runtime");
+parcelHelpers.export(exports, "loadSearchResults", ()=>loadSearchResults
+);
+var _config = require("./config");
+var _helpers = require("./helpers");
+var _recipeView = require("./views/recipeView");
+var _recipeViewDefault = parcelHelpers.interopDefault(_recipeView);
 const state = {
     recipe: {
     }
 };
 const loadRecipe = async function(id) {
     try {
-        const res = await fetch(`https://forkify-api.herokuapp.com/api/v2/recipes/${id}`);
-        const data = await res.json();
-        if (!res.ok) throw new Error(`${data.message} ${res.status}`);
+        const data = await _helpers.getJSON(`${_config.API_URL}${id}`);
         const { recipe  } = data.data;
         state.recipe = {
             id: recipe.id,
@@ -17550,20 +17544,75 @@ const loadRecipe = async function(id) {
         };
         console.log(state.recipe);
     } catch (err) {
-        alert(err);
+        //temp error handling
+        console.error(`${err}💥💥💥💥`);
+        throw err;
+    }
+};
+const loadSearchResults = async function(query) {
+    const data = await _helpers.getJSON(`${_config.API_URL}?search=${query}`);
+    console.log(data);
+    data.data.recipe.map((rec)=>{
+        return {
+            id: rec.id,
+            title: rec.title,
+            publisher: rec.publisher,
+            image: rec.image_url
+        };
+    });
+};
+loadSearchResults('pizza');
+
+},{"@parcel/transformer-js/src/esmodule-helpers.js":"367CR","./config":"6pr2F","./helpers":"581KF","./views/recipeView":"9e6b9"}],"6pr2F":[function(require,module,exports) {
+var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
+parcelHelpers.defineInteropFlag(exports);
+parcelHelpers.export(exports, "API_URL", ()=>API_URL
+);
+parcelHelpers.export(exports, "TIMEOUT_SEC", ()=>TIMEOUT_SEC
+);
+const API_URL = `https://forkify-api.herokuapp.com/api/v2/recipes`;
+const TIMEOUT_SEC = 10;
+
+},{"@parcel/transformer-js/src/esmodule-helpers.js":"367CR"}],"581KF":[function(require,module,exports) {
+var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
+parcelHelpers.defineInteropFlag(exports);
+parcelHelpers.export(exports, "getJSON", ()=>getJSON
+);
+var _config = require("./config");
+const timeout = function(s) {
+    return new Promise(function(_, reject) {
+        setTimeout(function() {
+            reject(new Error(`Request took too long! Timeout after ${s} second`));
+        }, s * 1000);
+    });
+};
+const getJSON = async function(url) {
+    try {
+        const fetchPro = fetch(url);
+        const res = await Promise.race([
+            timeout(_config.TIMEOUT_SEC)
+        ]);
+        const data = await res.json();
+        if (!res.ok) throw new Error(`${data.message} ${res.status}`);
+        return data;
+    } catch (err) {
+        console.log(err);
+        throw err;
     }
 };
 
-},{"regenerator-runtime":"62Qib","@parcel/transformer-js/src/esmodule-helpers.js":"367CR"}],"9e6b9":[function(require,module,exports) {
+},{"@parcel/transformer-js/src/esmodule-helpers.js":"367CR","./config":"6pr2F"}],"9e6b9":[function(require,module,exports) {
 var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
 parcelHelpers.defineInteropFlag(exports);
 var _iconsSvg = require("url:../../img/icons.svg");
 var _iconsSvgDefault = parcelHelpers.interopDefault(_iconsSvg);
 var _fractional = require("fractional");
-console.log(_fractional.fractional);
+var _fractionalDefault = parcelHelpers.interopDefault(_fractional);
 class RecipeView {
     #parentElement = document.querySelector('.recipe');
     #data;
+    #errorMessage = `We couldn't find that recipe. Plaese try another one!`;
+    #message = '';
     render(data) {
         this.#data = data;
         const markup = this.#generateMarkup();
@@ -17575,15 +17624,32 @@ class RecipeView {
     }
     renderSpinner() {
         const markup = `\n      <div class="spinner">\n        <svg>\n          <use href="${_iconsSvgDefault.default}#icon-loader"></use>\n        </svg>\n      </div>`;
-        this.#parentElement.innerHTML = '';
+        this.#clear();
         this.#parentElement.insertAdjacentHTML('afterbegin', markup);
+    }
+    renderError(mesaage = this.#errorMessage) {
+        const markup = `\n    <div class="error">\n      <div>\n        <svg>\n          <use href="${_iconsSvgDefault.default}#icon-alert-triangle"></use>\n        </svg>\n      </div>\n      <p>${mesaage}</p>\n    </div>`;
+        this.#clear();
+        this.#parentElement.insertAdjacentHTML('afterbegin', markup);
+    }
+    renderMessage(mesaage = this.#message) {
+        const markup = `\n    <div class="message">\n      <div>\n        <svg>\n          <use href="${_iconsSvgDefault.default}#icon-smile"></use>\n        </svg>\n      </div>\n      <p>${mesaage}</p>\n    </div>`;
+        this.#clear();
+        this.#parentElement.insertAdjacentHTML('afterbegin', markup);
+    }
+    addHandlerRender(handler) {
+        [
+            'hashchange',
+            'load'
+        ].forEach((ev)=>window.addEventListener(ev, handler)
+        );
     }
     #generateMarkup = function() {
         return `\n      <figure class="recipe__fig">\n        <img src="${this.#data.image}" alt="${this.#data.title}" class="recipe__img" />\n        <h1 class="recipe__title">\n          <span>${this.#data.title}</span>\n        </h1>\n      </figure>\n\n      <div class="recipe__details">\n        <div class="recipe__info">\n          <svg class="recipe__info-icon">\n            <use href="${_iconsSvgDefault.default}#icon-clock"></use>\n          </svg>\n          <span class="recipe__info-data recipe__info-data--minutes">${this.#data.cookingTime}</span>\n          <span class="recipe__info-text">minutes</span>\n        </div>\n        <div class="recipe__info">\n          <svg class="recipe__info-icon">\n            <use href="${_iconsSvgDefault.default}#icon-users"></use>\n          </svg>\n          <span class="recipe__info-data recipe__info-data--people">${this.#data.servings}</span>\n          <span class="recipe__info-text">servings</span>\n\n          <div class="recipe__info-buttons">\n            <button class="btn--tiny btn--increase-servings">\n              <svg>\n                <use href="${_iconsSvgDefault.default}#icon-minus-circle"></use>\n              </svg>\n            </button>\n            <button class="btn--tiny btn--increase-servings">\n              <svg>\n                <use href="${_iconsSvgDefault.default}#icon-plus-circle"></use>\n              </svg>\n            </button>\n          </div>\n        </div>\n\n        <div class="recipe__user-generated">\n          <svg>\n            <use href="${_iconsSvgDefault.default}#icon-user"></use>\n          </svg>\n        </div>\n        <button class="btn--round">\n          <svg class="">\n            <use href="${_iconsSvgDefault.default}#icon-bookmark-fill"></use>\n          </svg>\n        </button>\n      </div>\n\n      <div class="recipe__ingredients">\n        <h2 class="heading--2">Recipe ingredients</h2>\n        <ul class="recipe__ingredient-list">\n          ${this.#data.ingredients.map(this.#generateMarkupIngredient).join('')}\n        </ul>\n      </div>\n\n      <div class="recipe__directions">\n        <h2 class="heading--2">How to cook it</h2>\n        <p class="recipe__directions-text">\n          This recipe was carefully designed and tested by\n          <span class="recipe__publisher">${this.#data.publisher}</span>. Please check out\n          directions at their website.\n        </p>\n        <a\n          class="btn--small recipe__btn"\n          href="${this.#data.sourceUrl}"\n          target="_blank"\n        >\n          <span>Directions</span>\n          <svg class="search__icon">\n            <use href="${_iconsSvgDefault.default}#icon-arrow-right"></use>\n          </svg>\n        </a>\n      </div>\n    `;
     };
      #generateMarkupIngredient(ing) {
         (ing)=>{
-            return `\n                <li class="recipe__ingredient">\n                  <svg class="recipe__icon">\n                    <use href="${_iconsSvgDefault.default}#icon-check"></use>\n                  </svg>\n                  <div class="recipe__quantity">${ing.quantity ? new Fraction.Fraction(ing.quantity).toString() : ''}</div>\n                  <div class="recipe__description">\n                    <span class="recipe__unit">${ing.unit}</span>\n                    ${ing.description}\n                  </div>\n                </li>`;
+            return `\n                <li class="recipe__ingredient">\n                  <svg class="recipe__icon">\n                    <use href="${_iconsSvgDefault.default}#icon-check"></use>\n                  </svg>\n                  <div class="recipe__quantity">${ing.quantity ? new _fractionalDefault.default.Fraction(ing.quantity).toString() : ''}</div>\n                  <div class="recipe__description">\n                    <span class="recipe__unit">${ing.unit}</span>\n                    ${ing.description}\n                  </div>\n                </li>`;
         };
     }
 }
