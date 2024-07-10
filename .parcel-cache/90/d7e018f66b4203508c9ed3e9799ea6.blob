@@ -1,5 +1,0 @@
-'use strict';
-var global = require('../internals/global');
-var isCallable = require('../internals/is-callable');
-var WeakMap1 = global.WeakMap;
-module.exports = isCallable(WeakMap1) && /native code/.test(String(WeakMap1));
